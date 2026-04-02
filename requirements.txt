@@ -1,0 +1,3 @@
+pipecat-ai[livekit,openai,deepgram,silero] 
+python-dotenv 
+loguru
