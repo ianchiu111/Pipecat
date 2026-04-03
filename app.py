@@ -1,6 +1,6 @@
 #
 # https://github.com/pipecat-ai/pipecat/blob/main/examples/transports/transports-livekit.py
-# run with `python3 test.py -r <testing room name>`
+# run with `python3 app.py -r <testing room name>`
 #
 
 import asyncio
