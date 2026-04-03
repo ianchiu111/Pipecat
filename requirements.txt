@@ -1,3 +1,6 @@
-pipecat-ai[livekit,openai,deepgram,silero] 
+pipecat-ai[livekit,openai,deepgram,silero,flows] 
+pipecat-ai-flows
 python-dotenv 
 loguru
+
+fastapi
