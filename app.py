@@ -13,13 +13,6 @@ from datetime import datetime
 # LiveKit transport and configuration
 from pipecat.runner.livekit import configure
 from pipecat.transports.livekit.transport import LiveKitParams, LiveKitTransport
-# Services from pipecat for OpenAI's STT, LLM, and TTS
-from pipecat.services.openai.stt import OpenAISTTService
-from pipecat.services.openai.llm import OpenAILLMService
-from pipecat.services.openai.tts import OpenAITTSService
-from utils.pipecat_service.openai_stt import OpenAISTTServiceConfig
-from utils.pipecat_service.openai_llm import OpenAILLMServiceConfig
-from utils.pipecat_service.openai_tts import OpenAITTSServiceConfig
 
 # Aggregators
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -43,6 +36,10 @@ from pipecat.frames.frames import (
     UserStoppedSpeakingFrame,
 )
 
+# Services from pipecat for OpenAI's STT, LLM, and TTS
+from utils.pipecat_service.openai_stt import OpenAISTTServiceConfig
+from utils.pipecat_service.openai_llm import OpenAILLMServiceConfig
+from utils.pipecat_service.openai_tts import OpenAITTSServiceConfig
 from utils.user_tagging import UserTaggingProcessor
 
 from dotenv import load_dotenv
