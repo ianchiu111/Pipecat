@@ -10,7 +10,8 @@ class OpenAISTTServiceConfig:
         return OpenAISTTService(
             api_key=os.getenv("OPENAI_API_KEY"),
             settings=OpenAISTTService.Settings(
-                model=self.model
+                model=self.model,
+                language="en" # for english speaker
             )
         )
     

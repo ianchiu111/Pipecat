@@ -1,33 +1,32 @@
-
 /*
 前端主畫面，用來放置 RTC 的 UI 元件以及接收 Agent 傳來 Data Channel 訊息的地方
 */
 
 "use client";
 
-import { useEffect, useState } from 'react';
+// 新增引入 useCallback 和 useRef
+import { useEffect, useState, useCallback, useRef } from 'react';
 import '@livekit/components-styles';
 import {
   LiveKitRoom,
   VideoConference,
   RoomAudioRenderer,
-  useDataChannel
+  useRoomContext 
 } from '@livekit/components-react';
+import { RoomEvent } from 'livekit-client';
 
 export default function MeetingPage() {
   const [token, setToken] = useState('');
   const [isStarted, setIsStarted] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // 新增狀態：讓使用者自訂姓名與房間名稱
   const [userName, setUserName] = useState('');
-  const [roomName, setRoomName] = useState('default-room'); // 預設給一個房間名
+  const [roomName, setRoomName] = useState('default-room'); 
+  const [transcripts, setTranscripts] = useState([]);
 
   const handleJoin = async () => {
-    // 防呆：確保名字和房間都有填寫
     if (!userName.trim() || !roomName.trim()) return;
 
-    // 將使用者輸入的值帶入 API URL 中
     const res = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(userName)}`);
     const data = await res.json();
     
@@ -39,7 +38,60 @@ export default function MeetingPage() {
     }
   };
 
-  // 檢查是否可以點擊按鈕
+  // ✨ CHANGED: 使用 useCallback 包裝並加入「累加 / 覆蓋」邏輯
+  const handleReceiveMessage = useCallback((data) => {
+    setTranscripts((prevTranscripts) => {
+      const lastMsg = prevTranscripts[prevTranscripts.length - 1];
+      const now = Date.now();
+      
+      // 1. 過濾掉後端傳來的系統標籤，例如 "[PA_ddiQNYE8hgHv says]: "
+      let cleanText = data.text || '';
+      cleanText = cleanText.replace(/\[.*?says\]:\s*/g, '');
+      
+      // 如果是 User，順手把前後空白清掉 (Agent 的空白要保留，因為是 Token 組合)
+      if (data.speaker === 'User') {
+        cleanText = cleanText.trim();
+      }
+
+      if (!cleanText) return prevTranscripts; // 如果過濾完沒字了就忽略
+
+      // 2. 判斷是否需要跟上一個泡泡合併
+      if (lastMsg && lastMsg.speaker === data.speaker) {
+        // 防呆：如果同一人說話間隔超過 3 秒，或是上一句已標記結束，則強制換新泡泡
+        const isTimeout = (now - lastMsg.updatedAt) > 3000;
+        if (lastMsg.isFinal || isTimeout) {
+            return [...prevTranscripts, { ...data, text: cleanText, updatedAt: now }];
+        }
+
+        const newTranscripts = [...prevTranscripts];
+        
+        if (data.speaker === 'User') {
+          // User (STT) 處理：覆蓋最後一個泡泡
+          // 語音辨識過程中會不斷送出「越來越長」的結果，所以直接覆蓋，避免產出三次相同的結果
+          newTranscripts[newTranscripts.length - 1] = { 
+            ...lastMsg, 
+            text: cleanText,
+            updatedAt: now,
+            isFinal: data.isFinal
+          };
+        } else {
+          // Agent (LLM) 處理：累加最後一個泡泡
+          // AI 是串流一小段一小段 (Tokens) 吐出，因此將新的碎片接續到舊句子後面
+          newTranscripts[newTranscripts.length - 1] = { 
+            ...lastMsg, 
+            text: lastMsg.text + cleanText,
+            updatedAt: now,
+            isFinal: data.isFinal
+          };
+        }
+        return newTranscripts;
+      }
+
+      // 3. 如果換人說話了，或者是第一則訊息，直接新增一個泡泡
+      return [...prevTranscripts, { ...data, text: cleanText, updatedAt: now }];
+    });
+  }, []);
+
   const isFormValid = userName.trim() !== '' && roomName.trim() !== '';
 
   if (!isStarted) {
@@ -60,7 +112,6 @@ export default function MeetingPage() {
           請輸入您的稱呼與會議室名稱，以開始會議
         </p>
 
-        {/* 新增：使用者姓名輸入框 */}
         <input 
           type="text" 
           placeholder="您的稱呼 (例: 王先生)" 
@@ -77,7 +128,6 @@ export default function MeetingPage() {
           }}
         />
 
-        {/* 新增：房間名稱輸入框 */}
         <input 
           type="text" 
           placeholder="會議室名稱" 
@@ -130,41 +180,93 @@ export default function MeetingPage() {
           token={token}
           serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
           data-lk-theme="default"
+          onDisconnected={() => {
+            setIsStarted(false); // 切換回初始輸入首頁
+            setTranscripts([]);  // 清除對話紀錄 (如果不清空，下次進來會看到舊對話)
+            setToken('');        // 清空 Token
+          }}
         >
           <VideoConference />
           <RoomAudioRenderer />
-          <AgentDataReceiver /> 
+          <AgentDataReceiver onReceiveMessage={handleReceiveMessage} /> 
         </LiveKitRoom>
       </div>
 
-      <div style={{ width: '400px', padding: '20px', backgroundColor: '#000000', color: '#ffffff' }}>
+      <div style={{ 
+          width: '400px', 
+          padding: '20px', 
+          backgroundColor: '#000000', 
+          color: '#ffffff',
+          display: 'flex',
+          flexDirection: 'column'
+      }}>
          <h2>Live Transcript & AI Polish</h2>
-         <p>歡迎, {userName} 加入會議室！</p>
+         <p style={{ borderBottom: '1px solid #333', paddingBottom: '10px' }}>
+            歡迎, {userName} 加入會議室！
+         </p>
+
+         <div style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            marginTop: '10px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '12px',
+            paddingRight: '10px'
+         }}>
+            {transcripts.map((msg, index) => (
+              <div 
+                key={index} 
+                style={{
+                  alignSelf: msg.speaker === 'User' ? 'flex-end' : 'flex-start',
+                  backgroundColor: msg.speaker === 'User' ? '#0070f3' : '#333333',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  maxWidth: '80%',
+                  wordBreak: 'break-word'
+                }}
+              >
+                <strong style={{ fontSize: '0.8rem', color: '#ccc', display: 'block', marginBottom: '4px' }}>
+                  {msg.speaker === 'User' ? userName : 'AI Agent'}
+                </strong>
+                <span>{msg.text}</span>
+              </div>
+            ))}
+         </div>
       </div>
     </div>
   );
 }
 
 function AgentDataReceiver({ onReceiveMessage }) {
-// function AgentDataReceiver({ onReceiveMessage }: { onReceiveMessage?: (data: any) => void }) {  // check if this is correct
-  const { message } = useDataChannel();
+  const room = useRoomContext();
 
   useEffect(() => {
-    if (message && message.payload) {
+    if (!room) return;
+
+    // 直接建立底層事件監聽器，避開 React state 的延遲
+    const handleDataReceived = (payload, participant, kind, topic) => {
       const decoder = new TextDecoder();
-      const payloadString = decoder.decode(message.payload);
+      const payloadString = decoder.decode(payload);
+      
       try {
         const data = JSON.parse(payloadString);
-        if (data.type === "transcript") {
-            if (onReceiveMessage) {
-                onReceiveMessage(data); 
-            }
+        if (data.type === "transcript" && onReceiveMessage) {
+            onReceiveMessage(data); 
         }
       } catch (e) {
         console.error("解析 JSON 失敗", e, payloadString);
       }
-    }
-  }, [message, onReceiveMessage]);
+    };
+
+    // 綁定事件
+    room.on(RoomEvent.DataReceived, handleDataReceived);
+
+    // Cleanup: 元件卸載時務必移除監聽器，避免重複觸發
+    return () => {
+      room.off(RoomEvent.DataReceived, handleDataReceived);
+    };
+  }, [room, onReceiveMessage]);
 
   return null;
 }

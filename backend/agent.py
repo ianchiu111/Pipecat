@@ -84,7 +84,7 @@ async def main():
         room_name=room_name,
         params=LiveKitParams(
             audio_in_enabled=True,
-            audio_out_enabled=True,
+            audio_out_enabled=False,
             transcription_out_enabled=True,
         ),
     )
@@ -98,10 +98,10 @@ async def main():
         transport.input(),          # Receive Input (Speech, Text messages from chat)
         stt,                        
         user_tagger,                # Tag User's transcription with speaker ID
-        # user_transcript_sender,   # Intercept user's transcription and send to frontend UI, Testing
+        user_transcript_sender,   # Intercept user's transcription and send to frontend UI, Testing
         user_aggregator,            # Check if user has stopped speaking, aggregate transcription into user message, and send to LLM
         llm,                       
-        # agent_transcript_sender,  # Intercept agent's transcription and send to frontend UI, Testing
+        agent_transcript_sender,  # Intercept agent's transcription and send to frontend UI, Testing
         tts,                        
         transport.output(),         # Output with speech
         assistant_aggregator        # Record Agent's conversation
