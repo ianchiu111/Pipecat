@@ -24,3 +24,44 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+/* 1. 確保下方的控制列可以滑動 (保留你原本已經加的設定) */
+.lk-control-bar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  flex-shrink: 0 !important; 
+  justify-content: flex-start !important;
+  padding: 0.5rem !important;
+  background-color: #1a1a1a !important; 
+  scrollbar-width: thin; 
+  scrollbar-color: #555 #1a1a1a;
+}
+.lk-control-bar > * {
+  flex-shrink: 0 !important;
+  margin-right: 0.5rem !important;
+}
+.lk-control-bar::-webkit-scrollbar {
+  height: 8px;
+}
+.lk-control-bar::-webkit-scrollbar-track { background: #1a1a1a; }
+.lk-control-bar::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+
+
+/* ✨ 2. 新增：把 LiveKit 的聊天室抽離，強制固定在畫面最右側 ✨ */
+@media (min-width: 768px) {
+  .lk-chat {
+    position: fixed !important;
+    top: 88px !important;       /* 對齊標題列下方 */
+    right: 16px !important;     /* 貼齊右側邊界 */
+    height: calc(100vh - 104px) !important; /* 填滿剩餘高度 */
+    width: 360px !important;    /* 設定與視訊畫面同寬 (360px) */
+    border-radius: 1rem !important;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+    border: 1px solid #e2e8f0 !important;
+    background-color: white !important;
+    z-index: 50 !important;
+    left: auto !important;
+    max-height: none !important;
+    transform: none !important; /* 防止 LiveKit 內建動畫干擾 */
+  }
+}
