@@ -32,7 +32,7 @@ export default function MeetingPage() {
   const [summary, setSummary] = useState(''); // ✨ 新增：用來存放 Markdown 筆記內容
   
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -270,9 +270,12 @@ function AgentDataReceiver({ onReceiveData }: AgentDataReceiverProps) {
   useEffect(() => {
     if (!room) return;
 
-    const handleDataReceived = (payload, participant, kind, topic) => {
+    const handleDataReceived = (payload: Uint8Array) => {
       const decoder = new TextDecoder();
       const payloadString = decoder.decode(payload);
+    // const handleDataReceived = (payload, participant, kind, topic) => {
+    //   const decoder = new TextDecoder();
+    //   const payloadString = decoder.decode(payload);
       
       try {
         const data = JSON.parse(payloadString);

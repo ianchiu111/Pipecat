@@ -4,13 +4,14 @@
 >>> Background Thread run FastAPI
 >>> Main Thread run LiveKit Agent
 """
-
+import time
 import asyncio
 import json
 import sys
 import os
 import threading
 import uvicorn
+import requests
 from loguru import logger
 
 # ===== FastAPI & Token imports =====
@@ -78,6 +79,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "timestamp": time.time()}
 
 @app.get("/api/token")
 async def get_token(room: str, username: str):
@@ -236,9 +241,47 @@ async def entrypoint(ctx: JobContext):
     logger.debug("Agent 連線中...")
     await runner.run(task)
 
+
+# ====================================================
+# Keep-Alive: prevent Render free-tier from sleeping
+# ====================================================
+def _keep_alive():
+    """
+    Ping the /health endpoint every 13 minutes to prevent the Render
+    free-tier server from sleeping due to inactivity.
+    """
+    # Render provides RENDER_EXTERNAL_URL automatically in production
+    base_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not base_url:
+        logger.warning("Keep-alive skipped: No RENDER_EXTERNAL_URL found.")
+        return
+
+    # Ensure URL ends with a slash for safety, then add health
+    ping_url = f"{base_url.rstrip('/')}/health"
+    interval = 13 * 60  # 13 minutes
+    
+    # Wait a bit for the server to actually start up before first ping
+    time.sleep(30)
+    
+    while True:
+        try:
+            resp = requests.get(ping_url, timeout=10)
+            logger.info(f"Keep-alive ping successful: {ping_url} [{resp.status_code}]")
+        except Exception as exc:
+            logger.warning(f"Keep-alive ping failed: {exc}")
+        
+        time.sleep(interval)
+
+
 if __name__ == "__main__":
 
+    # 1. Start FastAPI in background
     api_thread = threading.Thread(target=run_fastapi, daemon=True)
     api_thread.start()
 
+    # 2. Start Keep-Alive in background
+    keep_alive_thread = threading.Thread(target=_keep_alive, daemon=True, name="keep-alive")
+    keep_alive_thread.start()
+
+    # 3. Start LiveKit Agent (Main Thread)
     cli.run_app(server)
