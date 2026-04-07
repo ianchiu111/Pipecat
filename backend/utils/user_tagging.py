@@ -1,5 +1,4 @@
 
-import sys
 from loguru import logger
 
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor

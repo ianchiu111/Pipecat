@@ -104,7 +104,6 @@ export default function MeetingPage() {
             fontSize: '1.2rem',
             fontWeight: 'bold',
             color: '#ffffff',
-            // 如果表單未填完，顯示灰色；否則顯示藍色 hover 效果
             backgroundColor: !isFormValid ? '#cccccc' : (isHovered ? '#005bb5' : '#0070f3'), 
             border: 'none',
             borderRadius: '50px',
@@ -140,14 +139,14 @@ export default function MeetingPage() {
 
       <div style={{ width: '400px', padding: '20px', backgroundColor: '#000000', color: '#ffffff' }}>
          <h2>Live Transcript & AI Polish</h2>
-         <p>歡迎, {userName}！</p>
-         <p>這裡可以渲染接收到的 JSON 資料...</p>
+         <p>歡迎, {userName} 加入會議室！</p>
       </div>
     </div>
   );
 }
 
 function AgentDataReceiver({ onReceiveMessage }) {
+// function AgentDataReceiver({ onReceiveMessage }: { onReceiveMessage?: (data: any) => void }) {  // check if this is correct
   const { message } = useDataChannel();
 
   useEffect(() => {
