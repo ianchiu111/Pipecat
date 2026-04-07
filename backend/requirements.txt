@@ -5,3 +5,8 @@ gunicorn
 fastapi 
 uvicorn
 requests
+
+# LiveKit
+livekit
+livekit-api
+livekit-agents
