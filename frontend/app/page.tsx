@@ -12,6 +12,15 @@ import {
 import { RoomEvent } from 'livekit-client';
 import ReactMarkdown from 'react-markdown';
 
+interface MeetingMessage {
+  type: 'transcript' | 'summary';
+  speaker: string;
+  text: string;
+  isFinal?: boolean;
+  isChunk?: boolean;
+  updatedAt?: number; // Added for UI tracking
+}
+
 export default function MeetingPage() {
   const [token, setToken] = useState('');
   const [isStarted, setIsStarted] = useState(false);
@@ -19,7 +28,7 @@ export default function MeetingPage() {
   const [roomName, setRoomName] = useState('default-room'); 
   
   // 紀錄對話與結構化筆記的 State
-  const [transcripts, setTranscripts] = useState([]);
+  const [transcripts, setTranscripts] = useState<MeetingMessage[]>([]);
   const [summary, setSummary] = useState(''); // ✨ 新增：用來存放 Markdown 筆記內容
   
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -60,7 +69,7 @@ export default function MeetingPage() {
   };
 
   // Important to review
-  const handleReceiveData = useCallback((data) => {
+  const handleReceiveData = useCallback((data: MeetingMessage) => {
     if (data.type === "transcript") {
         setTranscripts((prev) => {
           const lastMsg = prev[prev.length - 1];
@@ -241,7 +250,12 @@ export default function MeetingPage() {
 // ---------------------------------------------------------------------------
 // 隱藏組件：負責接收 DataChannel 訊息 (更名為 onReceiveData)
 // ---------------------------------------------------------------------------
-function AgentDataReceiver({ onReceiveData }) {
+// Define props for the receiver component
+interface AgentDataReceiverProps {
+  onReceiveData: (data: MeetingMessage) => void;
+}
+
+function AgentDataReceiver({ onReceiveData }: AgentDataReceiverProps) {
   const room = useRoomContext();
 
   useEffect(() => {
