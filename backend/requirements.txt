@@ -4,3 +4,4 @@ loguru
 gunicorn
 fastapi 
 uvicorn
+requests
