@@ -5,8 +5,6 @@ from loguru import logger
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.frames.frames import Frame, TranscriptionFrame
 
-logger.add(sys.stderr, level="DEBUG")
-
 class UserTaggingProcessor(FrameProcessor):
     async def process_frame(self, frame: Frame, direction: FrameDirection):
 
