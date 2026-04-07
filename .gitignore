@@ -83,7 +83,6 @@ index.pkl
 # LangChain cache
 lc_cache/
 cache/
-*.json
 *.yaml
 
 # Model downloads

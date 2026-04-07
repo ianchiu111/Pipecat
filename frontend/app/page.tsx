@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -26,7 +27,7 @@ export default function MeetingPage() {
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      const chatEl = document.querySelector('.lk-chat');
+      const chatEl = document.querySelector<HTMLElement>('.lk-chat');
       if (chatEl && chatEl.style.display !== 'none') {
         setIsChatOpen(true);
       } else {
