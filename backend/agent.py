@@ -1,15 +1,26 @@
-### =======================
-# Add AI agent into RTC room as a participant with LiveKit Transport
-# run `python agent.py --room <RoomName>` to add the agent into a specific room
-### =======================
+"""
+# AI Agent aims to be a neccessary participant in WebRTC meeting room, providing real-time transcription, meeting summary, action items, etc.
+>>> run `python agent.py start` to start the agent server
+>>> Background Thread run FastAPI
+>>> Main Thread run LiveKit Agent
+"""
 
 import asyncio
 import json
 import sys
+import os
+import threading
+import uvicorn
 from loguru import logger
 
-# LiveKit transport and configuration
-from pipecat.runner.livekit import configure
+# ===== FastAPI & Token imports =====
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from livekit import api
+
+# LiveKit transport
+from livekit.agents import AgentServer, JobContext, cli
+
 from pipecat.transports.livekit.transport import LiveKitParams, LiveKitTransport
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.frames.frames import (
@@ -52,39 +63,104 @@ logger.remove(0)
 logger.add(sys.stderr, level="DEBUG")
 
 
-# ============= Initialize =============
+# ==========================================
+# 1. FastAPI Web Server for Token Generation
+# ==========================================
+app = FastAPI()
 
-user_tagger = UserTaggingProcessor()
+# 設定 CORS (建議透過環境變數控制，開發時可先用 ["*"] 允許所有來源)
+frontend_url = os.getenv("FRONTEND_URL", "*") 
 
-## pipecat service
-tts = OpenAITTSServiceConfig(voice="alloy")._tts()
-stt = OpenAISTTServiceConfig(model="whisper-1")._stt()
-llm = OpenAILLMServiceConfig(
-    model="gpt-4o-mini",
-    system_instruction=get_system_prompt()
-)._llm()
-
-## Aggregators
-context = LLMContext()
-user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
-    context,
-    user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
-    assistant_params=LLMAssistantAggregatorParams(),
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[frontend_url] if frontend_url != "*" else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# ============= Main =============
+@app.get("/api/token")
+async def get_token(room: str, username: str):
+    if not room or not username:
+        raise HTTPException(status_code=400, detail="Missing room or username")
 
-async def main():
+    token = api.AccessToken(
+        os.getenv("LIVEKIT_API_KEY"),
+        os.getenv("LIVEKIT_API_SECRET")
+    )
+    token.with_identity(username).with_name(username).with_grants(
+        api.VideoGrants(
+            room_join=True,
+            room=room,
+            can_publish=True,
+            can_subscribe=True,
+        )
+    )
+    return {"token": token.to_jwt()}
 
-    url, token, room_name,  = await configure()
+def run_fastapi():
+    # Render 會自動提供 PORT 環境變數，如果沒有則預設使用 8000
+    port = int(os.environ.get("PORT", 8000))
+    logger.info(f"啟動 FastAPI Token 伺服器於 port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
+
+server = AgentServer()
+
+@server.rtc_session()
+async def entrypoint(ctx: JobContext):
+    # 1. LiveKit Agent 框架作為「任務接收者」連線
+    await ctx.connect()
+    logger.info(f"Dispatcher successfully joined room: {ctx.room.name}")
+
+    # ============= Generate Token for Pipecat =============
+    livekit_url = os.getenv("LIVEKIT_URL")
+    if not livekit_url:
+        raise ValueError("請確認已設定 LIVEKIT_URL 環境變數")
+
+    pipecat_token = api.AccessToken(
+        os.getenv("LIVEKIT_API_KEY"),
+        os.getenv("LIVEKIT_API_SECRET")
+    ).with_identity("ai-agent-pipecat").with_name("AI Assistant").with_grants(
+        api.VideoGrants(
+            room_join=True,
+            room=ctx.room.name, 
+            can_publish=True,
+            can_subscribe=True,
+        )
+    ).to_jwt()
+
+    # ============= Initialize Services =============
+    user_tagger = UserTaggingProcessor()
+    
+    tts = OpenAITTSServiceConfig(voice="alloy")._tts()
+    stt = OpenAISTTServiceConfig(model="whisper-1")._stt()
+    llm = OpenAILLMServiceConfig(
+        model="gpt-4o-mini",
+        system_instruction=get_system_prompt()
+    )._llm()
+
+    context = LLMContext()
+    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
+        assistant_params=LLMAssistantAggregatorParams(),
+    )
+
+    # ============= Transport =============
+    """
+    Must use these configs:
+    >>> url=livekit_url,
+    >>> room_name=ctx.room,
+    >>> token=pipecat_token
+    """
     transport = LiveKitTransport(
-        url=url,
-        token=token,
-        room_name=room_name,
+        url=livekit_url,
+        room_name=ctx.room,
+        token=pipecat_token,
         params=LiveKitParams(
             audio_in_enabled=True,
-            audio_out_enabled=False,
+            audio_out_enabled=False, 
             transcription_out_enabled=True,
         ),
     )
@@ -161,4 +237,8 @@ async def main():
     await runner.run(task)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+
+    api_thread = threading.Thread(target=run_fastapi, daemon=True)
+    api_thread.start()
+
+    cli.run_app(server)

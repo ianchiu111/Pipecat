@@ -57,14 +57,22 @@ export default function MeetingPage() {
   const handleJoin = async () => {
     if (!userName.trim() || !roomName.trim()) return;
 
-    const res = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(userName)}`);
-    const data = await res.json();
+    // 替換成你獨立後端 API 的實際網址 
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     
-    if (data.token) {
-      setToken(data.token);
-      setIsStarted(true);
-    } else {
-      alert("獲取憑證失敗，請檢查網路狀態");
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(userName)}`);
+      const data = await res.json();
+      
+      if (data.token) {
+        setToken(data.token);
+        setIsStarted(true);
+      } else {
+        alert("獲取憑證失敗，請檢查網路狀態");
+      }
+    } catch (error) {
+      console.error("Token 取得失敗:", error);
+      alert("無法連接到後端伺服器，請確認 agent.py 是否已啟動");
     }
   };
 

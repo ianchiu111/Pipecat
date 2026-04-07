@@ -2,3 +2,5 @@ pipecat-ai[livekit,openai]
 python-dotenv 
 loguru
 gunicorn
+fastapi 
+uvicorn
