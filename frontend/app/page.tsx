@@ -18,7 +18,7 @@ interface MeetingMessage {
   text: string;
   isFinal?: boolean;
   isChunk?: boolean;
-  updatedAt?: number; // Added for UI tracking
+  updatedAt: number; // Remove the '?' so it's mandatory in your state
 }
 
 export default function MeetingPage() {
@@ -71,31 +71,32 @@ export default function MeetingPage() {
   // Important to review
   const handleReceiveData = useCallback((data: MeetingMessage) => {
     if (data.type === "transcript") {
-        setTranscripts((prev) => {
-          const lastMsg = prev[prev.length - 1];
-          const now = Date.now();
-          
-          // Clean the text
-          let cleanText = data.text || '';
-          cleanText = cleanText.replace(/\[.*?says\]:\s*/g, '');
-          if (!cleanText.trim()) return prev;
+      setTranscripts((prev) => {
+        const lastMsg = prev[prev.length - 1];
+        const now = Date.now();
+        
+        let cleanText = data.text || '';
+        cleanText = cleanText.replace(/\[.*?says\]:\s*/g, '');
+        if (!cleanText.trim()) return prev;
 
-          // If the last message was from the same speaker and within 5 seconds, append it
-          if (lastMsg && lastMsg.speaker === data.speaker && (now - lastMsg.updatedAt < 5000)) {
-            const updatedTranscripts = [...prev];
-            updatedTranscripts[updatedTranscripts.length - 1] = {
-              ...lastMsg,
-              text: lastMsg.text.endsWith(' ') ? lastMsg.text + cleanText : lastMsg.text + " " + cleanText,
-              updatedAt: now,
-              isFinal: data.isFinal
-            };
-            return updatedTranscripts;
-          }
+        // Use nullish coalescing (??) to satisfy the type checker
+        const lastUpdate = lastMsg?.updatedAt ?? 0;
 
-          // Otherwise, create a new transcript bubble
-          return [...prev, { ...data, text: cleanText, updatedAt: now }];
-        });
-      }
+        if (lastMsg && lastMsg.speaker === data.speaker && (now - lastUpdate < 5000)) {
+          const updatedTranscripts = [...prev];
+          updatedTranscripts[updatedTranscripts.length - 1] = {
+            ...lastMsg,
+            text: lastMsg.text.endsWith(' ') ? lastMsg.text + cleanText : lastMsg.text + " " + cleanText,
+            updatedAt: now, // Update the timestamp
+            isFinal: data.isFinal
+          };
+          return updatedTranscripts;
+        }
+
+        // When creating a NEW bubble, always include the current timestamp
+      return [...prev, { ...data, text: cleanText, updatedAt: now }];
+    });
+  }
     else if (data.type === "summary") {
       // ✨ 處理後端傳來的 Markdown 筆記
       // 如果後端是串流傳送 (isChunk: true)，就累加；如果是一次性傳送，就覆蓋
