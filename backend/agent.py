@@ -139,7 +139,8 @@ async def entrypoint(ctx: JobContext):
     user_tagger = UserTaggingProcessor()
     
     tts = OpenAITTSServiceConfig(voice="alloy")._tts()
-    stt = OpenAISTTServiceConfig(model="whisper-1")._stt()
+    # stt = OpenAISTTServiceConfig(model="whisper-1")._stt()
+    stt = OpenAISTTServiceConfig(model="gpt-4o-transcribe")._stt()
     llm = OpenAILLMServiceConfig(
         model="gpt-4o-mini",
         system_instruction=get_system_prompt()
