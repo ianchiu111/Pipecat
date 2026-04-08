@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8000
 
 # 啟動指令：執行您在地端使用的啟動命令
-CMD ["python", "agent.py", "start"]
+CMD ["python", "agent.py", "dev"]
