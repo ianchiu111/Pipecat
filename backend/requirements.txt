@@ -1,12 +1,17 @@
-pipecat-ai[livekit,openai] 
-python-dotenv 
-loguru
-gunicorn
-fastapi 
-uvicorn
-requests
+# web service
+fastapi==0.135.3
+uvicorn==0.44.0
+python-dotenv==1.2.2
+loguru==0.7.3
+requests==2.33.1
+certifi>=2024.7.4
 
-# LiveKit
-livekit
-livekit-api
-livekit-agents
+# LiveKit 相關 (已根據你的安裝紀錄更新版本)
+livekit==1.1.3
+livekit-agents==1.5.1
+livekit-api==1.1.0
+livekit-protocol==1.1.3
+livekit-blingfire==1.1.0
+
+# Pipecat
+pipecat-ai[livekit,openai]==0.0.108
