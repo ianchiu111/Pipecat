@@ -61,6 +61,18 @@ export default function MeetingPage() {
     const data = await res.json();
     
     if (data.token) {
+      // Trigger the AI agent to join the same room
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+      if (backendUrl) {
+        try {
+          await fetch(
+            `${backendUrl}/start-agent?room=${encodeURIComponent(roomName)}`,
+            { method: 'POST' }
+          );
+        } catch (e) {
+          console.warn(`Failed to start agent for room '${roomName}':`, e);
+        }
+      }
       setToken(data.token);
       setIsStarted(true);
     } else {

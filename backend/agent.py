@@ -1,19 +1,19 @@
 ### =======================
 # Add AI agent into RTC room as a participant with LiveKit Transport
 # run `python agent.py --room <RoomName>` to add the agent into a specific room
+# OR import and call `run_agent(room_name)` from server.py
 ### =======================
 
 import asyncio
 import json
+import os
 import sys
 from loguru import logger
 
 # LiveKit transport and configuration
-from pipecat.runner.livekit import configure
+from pipecat.runner.livekit import configure, generate_token_with_agent
 from pipecat.transports.livekit.transport import LiveKitParams, LiveKitTransport
-from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.frames.frames import (
-    Frame,
     TextFrame,
     InterruptionFrame,
     TranscriptionFrame,
@@ -48,35 +48,32 @@ from prompts import get_system_prompt
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
-logger.remove(0)
-logger.add(sys.stderr, level="DEBUG")
+# Configure logger only when running as the main module; when imported by
+# server.py the server already owns the loguru handler.
+if __name__ == "__main__":
+    logger.remove(0)
+    logger.add(sys.stderr, level="DEBUG")
 
 
-# ============= Initialize =============
+# ============= run_agent (called per room) =============
 
-user_tagger = UserTaggingProcessor()
+async def run_agent(room_name: str):
+    """Start the AI agent in the specified LiveKit room.
 
-## pipecat service
-tts = OpenAITTSServiceConfig(voice="alloy")._tts()
-stt = OpenAISTTServiceConfig(model="whisper-1")._stt()
-llm = OpenAILLMServiceConfig(
-    model="gpt-4o-mini",
-    system_instruction=get_system_prompt()
-)._llm()
+    Creates per-room instances of all services (STT, LLM, TTS, VAD) so that
+    multiple rooms can run concurrently without sharing state.
+    """
+    logger.info(f"Agent starting for room: {room_name}")
 
-## Aggregators
-context = LLMContext()
-user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
-    context,
-    user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
-    assistant_params=LLMAssistantAggregatorParams(),
-)
+    url = os.getenv("LIVEKIT_URL")
+    api_key = os.getenv("LIVEKIT_API_KEY")
+    api_secret = os.getenv("LIVEKIT_API_SECRET")
 
-# ============= Main =============
+    if not url or not api_key or not api_secret:
+        logger.error("Missing LIVEKIT_URL, LIVEKIT_API_KEY, or LIVEKIT_API_SECRET")
+        return
 
-async def main():
-
-    url, token, room_name,  = await configure()
+    token = generate_token_with_agent(room_name, "Pipecat Agent", api_key, api_secret)
 
     transport = LiveKitTransport(
         url=url,
@@ -89,6 +86,22 @@ async def main():
         ),
     )
 
+    # Per-room service instances
+    tts = OpenAITTSServiceConfig(voice="alloy")._tts()
+    stt = OpenAISTTServiceConfig(model="whisper-1")._stt()
+    llm = OpenAILLMServiceConfig(
+        model="gpt-4o-mini",
+        system_instruction=get_system_prompt()
+    )._llm()
+
+    context = LLMContext()
+    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
+        assistant_params=LLMAssistantAggregatorParams(),
+    )
+    user_tagger = UserTaggingProcessor()
+
     # self-defined processor
     user_transcript_sender = TranscriptSender(transport, "User")
     agent_transcript_sender = TranscriptSender(transport, "Agent")
@@ -98,10 +111,10 @@ async def main():
         transport.input(),          # Receive Input (Speech, Text messages from chat)
         stt,                        
         user_tagger,                # Tag User's transcription with speaker ID
-        user_transcript_sender,   # Intercept user's transcription and send to frontend UI, Testing
+        user_transcript_sender,   # Intercept user's transcription and send to frontend UI
         user_aggregator,            # Check if user has stopped speaking, aggregate transcription into user message, and send to LLM
         llm,                       
-        agent_transcript_sender,  # Intercept agent's transcription and send to frontend UI, Testing
+        agent_transcript_sender,  # Intercept agent's transcription and send to frontend UI
         tts,                        
         transport.output(),         # Output with speech
         assistant_aggregator        # Record Agent's conversation
@@ -157,8 +170,17 @@ async def main():
             ],
         )
 
-    logger.debug("Agent 連線中...")
+    logger.debug(f"Agent connecting (room={room_name})...")
     await runner.run(task)
+    logger.info(f"Agent finished for room: {room_name}")
+
+
+# ============= Standalone entrypoint =============
+
+async def main():
+    """CLI entrypoint: reads room name from args/env and runs the agent."""
+    _, _, room_name = await configure()
+    await run_agent(room_name)
 
 if __name__ == "__main__":
     asyncio.run(main())

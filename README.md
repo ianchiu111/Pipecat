@@ -16,6 +16,32 @@ This project implements a real-time, multi-user conversational AI voice agent. T
 <img src="images/UI_image.png" alt="image" width="500"/>
 
 
+## Deploy
+
+### Backend (Render Web Service)
+- **Root Directory**: `backend`
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `python server.py`
+- **Environment Variables**:
+  | Variable | Description |
+  |---|---|
+  | `LIVEKIT_URL` | LiveKit server WebSocket URL (e.g. `wss://….livekit.cloud`) |
+  | `LIVEKIT_API_KEY` | LiveKit API key |
+  | `LIVEKIT_API_SECRET` | LiveKit API secret |
+  | `OPENAI_API_KEY` | OpenAI API key |
+  | `BACKEND_URL` | Public URL of this service (e.g. `https://pipecat-backend.onrender.com`) – used for keep-alive pings |
+  | `FRONTEND_URL` | Frontend origin URL (e.g. `https://pipecat-frontend.vercel.app`) – restricts CORS to this origin; leave unset to allow all origins |
+  | `PORT` | Port to listen on (Render sets this automatically, default `10000`) |
+
+### Frontend (Vercel / Render Static Site)
+- **Environment Variables**:
+  | Variable | Description |
+  |---|---|
+  | `LIVEKIT_API_KEY` | LiveKit API key (for token generation in Next.js API route) |
+  | `LIVEKIT_API_SECRET` | LiveKit API secret |
+  | `NEXT_PUBLIC_LIVEKIT_URL` | LiveKit server URL (exposed to browser) |
+  | `NEXT_PUBLIC_BACKEND_URL` | Backend service URL (e.g. `https://pipecat-backend.onrender.com`) – used to trigger the agent |
+
 ## Reference
 1. [LiveKit](https://livekit.com)
 2. Pipecat
