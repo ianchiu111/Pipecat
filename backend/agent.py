@@ -250,10 +250,10 @@ def _keep_alive():
     Ping the /health endpoint every 13 minutes to prevent the Render
     free-tier server from sleeping due to inactivity.
     """
-    # Render provides RENDER_EXTERNAL_URL automatically in production
-    base_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    # Render provides BACKEND_API_URL automatically in production
+    base_url = os.environ.get("BACKEND_API_URL", "")
     if not base_url:
-        logger.warning("Keep-alive skipped: No RENDER_EXTERNAL_URL found.")
+        logger.warning("Keep-alive skipped: No BACKEND_API_URL found.")
         return
 
     # Ensure URL ends with a slash for safety, then add health
