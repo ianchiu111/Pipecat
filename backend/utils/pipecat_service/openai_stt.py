@@ -20,5 +20,6 @@ class OpenAISTTServiceConfig:
             settings=OpenAIRealtimeSTTService.Settings(
                 model=self.model,
                 noise_reduction="near_field",
+                language="en" 
             ),
         )
