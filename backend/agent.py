@@ -80,6 +80,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def check():
+    return {"status": "ok", "timestamp": time.time()}
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "timestamp": time.time()}
@@ -243,35 +247,35 @@ async def entrypoint(ctx: JobContext):
     await runner.run(task)
 
 
-# ====================================================
-# Keep-Alive: prevent Render free-tier from sleeping
-# ====================================================
-def _keep_alive():
-    """
-    Ping the /health endpoint every 13 minutes to prevent the Render
-    free-tier server from sleeping due to inactivity.
-    """
-    # Render provides BACKEND_API_URL automatically in production
-    base_url = os.environ.get("BACKEND_API_URL", "")
-    if not base_url:
-        logger.warning("Keep-alive skipped: No BACKEND_API_URL found.")
-        return
+# # ====================================================
+# # Keep-Alive: prevent Render free-tier from sleeping
+# # ====================================================
+# def _keep_alive():
+#     """
+#     Ping the /health endpoint every 13 minutes to prevent the Render
+#     free-tier server from sleeping due to inactivity.
+#     """
+#     # Render provides BACKEND_API_URL automatically in production
+#     base_url = os.environ.get("BACKEND_API_URL", "")
+#     if not base_url:
+#         logger.warning("Keep-alive skipped: No BACKEND_API_URL found.")
+#         return
 
-    # Ensure URL ends with a slash for safety, then add health
-    ping_url = f"{base_url.rstrip('/')}/health"
-    interval = 13 * 60  # 13 minutes
+#     # Ensure URL ends with a slash for safety, then add health
+#     ping_url = f"{base_url.rstrip('/')}/health"
+#     interval = 13 * 60  # 13 minutes
     
-    # Wait a bit for the server to actually start up before first ping
-    time.sleep(30)
+#     # Wait a bit for the server to actually start up before first ping
+#     time.sleep(30)
     
-    while True:
-        try:
-            resp = requests.get(ping_url, timeout=10)
-            logger.info(f"Keep-alive ping successful: {ping_url} [{resp.status_code}]")
-        except Exception as exc:
-            logger.warning(f"Keep-alive ping failed: {exc}")
+#     while True:
+#         try:
+#             resp = requests.get(ping_url, timeout=10)
+#             logger.info(f"Keep-alive ping successful: {ping_url} [{resp.status_code}]")
+#         except Exception as exc:
+#             logger.warning(f"Keep-alive ping failed: {exc}")
         
-        time.sleep(interval)
+#         time.sleep(interval)
 
 
 if __name__ == "__main__":
@@ -280,9 +284,9 @@ if __name__ == "__main__":
     api_thread = threading.Thread(target=run_fastapi, daemon=True)
     api_thread.start()
 
-    # 2. Start Keep-Alive in background
-    keep_alive_thread = threading.Thread(target=_keep_alive, daemon=True, name="keep-alive")
-    keep_alive_thread.start()
+    # # 2. Start Keep-Alive in background
+    # keep_alive_thread = threading.Thread(target=_keep_alive, daemon=True, name="keep-alive")
+    # keep_alive_thread.start()
 
     # 3. Start LiveKit Agent (Main Thread)
     cli.run_app(server)
